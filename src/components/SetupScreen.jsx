@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, ArrowLeft } from 'lucide-react';
+import { Play, ArrowLeft, Share2 } from 'lucide-react';
 import PropTypes from 'prop-types';
 import logo from '../assets/logo.jpeg';
 import pkg from '../../package.json';
+import QRCodeModal from './QRCodeModal';
 
 export default function SetupScreen({ onStartGame }) {
     const [step, setStep] = useState(1);
     const [numPlayers, setNumPlayers] = useState(null);
     const [customNum, setCustomNum] = useState(''); // New state for custom input
     const [players, setPlayers] = useState([]);
+    const [showQR, setShowQR] = useState(false);
     const inputRefs = useRef([]);
 
     // Initialize players array when numPlayers is selected
@@ -69,6 +71,14 @@ export default function SetupScreen({ onStartGame }) {
 
     return (
         <div className="min-h-screen bg-neutral-900 text-white flex flex-col items-center justify-center p-6 relative">
+            {/* Share Button */}
+            <button
+                onClick={() => setShowQR(true)}
+                className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors z-10"
+                title="Condividi"
+            >
+                <Share2 className="w-5 h-5 text-violet-400" />
+            </button>
             {/* Version Footer */}
             <div className="absolute bottom-2 right-2 text-neutral-600 text-[10px] font-mono select-none">
                 v{pkg.version}
@@ -177,6 +187,7 @@ export default function SetupScreen({ onStartGame }) {
                     </motion.div>
                 )}
             </AnimatePresence>
+            <QRCodeModal isOpen={showQR} onClose={() => setShowQR(false)} />
         </div>
     );
 }

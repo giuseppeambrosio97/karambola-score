@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, Trophy, BarChart3, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Check, Trophy, BarChart3, RotateCcw, Share2 } from 'lucide-react';
 import PlayerCard from './PlayerCard';
 import Leaderboard from './Leaderboard';
+import QRCodeModal from './QRCodeModal';
 import GameTimer from './GameTimer';
 import PropTypes from 'prop-types';
 import logo from '../assets/logo.jpeg';
@@ -10,6 +11,7 @@ import pkg from '../../package.json';
 
 export default function GameScreen({ players, gameStartTime, onUpdateScore, onRollbackScore, onUndoSingleEntry, onSetWinner, onResetGame, onRestartMatch }) {
     const [showLeaderboard, setShowLeaderboard] = useState(false);
+    const [showQR, setShowQR] = useState(false);
     const [selectedPlayerId, setSelectedPlayerId] = useState(null);
     const [customScore, setCustomScore] = useState('');
     const customInputRef = useRef(null);
@@ -73,6 +75,13 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onRo
                 </div>
 
                 <div className="flex gap-2">
+                    <button
+                        onClick={() => setShowQR(true)}
+                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                        title="Condividi"
+                    >
+                        <Share2 className="w-5 h-5 text-violet-400" />
+                    </button>
                     <button
                         onClick={() => setShowLeaderboard(true)}
                         className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
@@ -200,6 +209,7 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onRo
                 onClose={() => setShowLeaderboard(false)}
                 onToggleWinner={onSetWinner}
             />
+            <QRCodeModal isOpen={showQR} onClose={() => setShowQR(false)} />
             {/* Version Footer */}
             <div className="absolute bottom-1 right-1 text-white/10 text-[10px] font-mono select-none z-50 pointer-events-none">
                 v{pkg.version}
