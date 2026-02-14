@@ -38,7 +38,48 @@ export default function App() {
       if (p.id !== playerId) return p;
 
       const newScore = p.score + change;
-      const newHistory = [...p.history, { val: change, timestamp: Date.now() }];
+      const newHistory = [...p.history, { val: change, scoreAfter: newScore, timestamp: Date.now() }];
+
+      return { ...p, score: newScore, history: newHistory };
+    }));
+  };
+
+  // Rollback: remove the last N history entries (from the end) up to and including the target index
+  const handleRollbackScore = (playerId, historyIndex) => {
+    setPlayers(prev => prev.map(p => {
+      if (p.id !== playerId) return p;
+
+      // historyIndex is the index in the original (non-reversed) history array
+      const newHistory = p.history.slice(0, historyIndex);
+      const newScore = newHistory.length > 0
+        ? newHistory[newHistory.length - 1].scoreAfter ?? 0
+        : 0;
+
+      return { ...p, score: newScore, history: newHistory };
+    }));
+  };
+
+  // Undo single entry: remove just one entry, recalculate subsequent scoreAfter values
+  const handleUndoSingleEntry = (playerId, historyIndex) => {
+    setPlayers(prev => prev.map(p => {
+      if (p.id !== playerId) return p;
+
+      const newHistory = [...p.history];
+      newHistory.splice(historyIndex, 1);
+
+      // Recalculate scoreAfter for all entries from the removed index onward
+      let runningScore = historyIndex > 0
+        ? (newHistory[historyIndex - 1].scoreAfter ?? 0)
+        : 0;
+
+      for (let i = historyIndex; i < newHistory.length; i++) {
+        runningScore += newHistory[i].val;
+        newHistory[i] = { ...newHistory[i], scoreAfter: runningScore };
+      }
+
+      const newScore = newHistory.length > 0
+        ? newHistory[newHistory.length - 1].scoreAfter ?? 0
+        : 0;
 
       return { ...p, score: newScore, history: newHistory };
     }));
@@ -46,21 +87,17 @@ export default function App() {
 
   const handleSetManualWinner = (playerId) => {
     setPlayers(prev => prev.map(p => {
-      // Toggle if already winner, otherwise set as winner and unset others?
-      // "Mark some player as winner". Usually only one winner.
-      // Let's toggle. If ID matches and already true -> false.
-      // If ID matches and false -> true.
-      // Others -> false (exclusive winner).
+      // Toggle winner status for the selected player
       if (p.id === playerId) {
         return { ...p, manualWinner: !p.manualWinner };
       }
-      return { ...p, manualWinner: false };
+      return p;
     }));
   };
 
   const handleResetScores = () => {
     if (confirm('Vuoi davvero azzerare tutti i punteggi?')) {
-      setPlayers(prev => prev.map(p => ({ ...p, score: 0, history: [] })));
+      setPlayers(prev => prev.map(p => ({ ...p, score: 0, history: [], manualWinner: false })));
       setGameStartTime(Date.now()); // Reset timer on match restart
     }
   };
@@ -80,6 +117,8 @@ export default function App() {
           players={players}
           gameStartTime={gameStartTime}
           onUpdateScore={handleUpdateScore}
+          onRollbackScore={handleRollbackScore}
+          onUndoSingleEntry={handleUndoSingleEntry}
           onSetWinner={handleSetManualWinner}
           onResetGame={handleResetGame}
           onRestartMatch={handleResetScores}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, Trophy } from 'lucide-react';
+import { History, Trophy, Undo2, X } from 'lucide-react';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import PropTypes from 'prop-types';
@@ -20,7 +20,7 @@ function formatTimeAgo(timestamp) {
     return `${hours}h fa`;
 }
 
-export default function PlayerCard({ player, isWinner, isSelected, onClick }) {
+export default function PlayerCard({ player, isWinner, isSelected, onClick, onRollback, onUndoSingle }) {
     const [showHistory, setShowHistory] = useState(false);
 
     return (
@@ -63,7 +63,7 @@ export default function PlayerCard({ player, isWinner, isSelected, onClick }) {
                         animate={{ scale: 1, color: isSelected || isWinner ? '#fff' : '#e2e8f0' }}
                         className="text-4xl font-black tracking-tighter"
                     >
-                        {player.score}
+                        {Number(player.score.toFixed(2))}
                     </motion.span>
                 </div>
             </div>
@@ -86,20 +86,69 @@ export default function PlayerCard({ player, isWinner, isSelected, onClick }) {
                         exit={{ height: 0 }}
                         className="overflow-hidden bg-black/40"
                     >
-                        <div className="p-2 space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
+                        <div className="p-2 space-y-1 max-h-40 overflow-y-auto custom-scrollbar">
                             {player.history.length === 0 ? (
-                                <p className="text-center text-[10px] text-slate-600 italic">Nessuna mossa</p>
+                                <p className="text-center text-[10px] text-slate-600 italic">Nessun punto.</p>
                             ) : (
-                                [...player.history].reverse().map((entry, i) => (
-                                    <div key={i} className="flex justify-between items-center text-xs border-b border-white/5 last:border-0 pb-1">
-                                        <span className={entry.val > 0 ? "text-emerald-400" : "text-red-400"}>
-                                            {entry.val > 0 ? `+${entry.val}` : entry.val}
-                                        </span>
-                                        <span className="text-slate-500 text-[10px]">
-                                            {typeof entry === 'object' ? formatTimeAgo(entry.timestamp) : '-'}
-                                        </span>
-                                    </div>
-                                ))
+                                [...player.history].reverse().map((entry, reversedIndex) => {
+                                    const originalIndex = player.history.length - 1 - reversedIndex;
+                                    const scoreAfter = entry.scoreAfter != null
+                                        ? Number(entry.scoreAfter.toFixed(2))
+                                        : '?';
+
+                                    return (
+                                        <div key={reversedIndex} className="flex items-center gap-2 text-xs border-b border-white/5 last:border-0 pb-1">
+                                            {/* Delta */}
+                                            <span className={cn(
+                                                "font-semibold min-w-[36px]",
+                                                entry.val > 0 ? "text-emerald-400" : "text-red-400"
+                                            )}>
+                                                {entry.val > 0 ? `+${entry.val}` : entry.val}
+                                            </span>
+
+                                            {/* Score after */}
+                                            <span className="text-slate-400 text-[10px] font-mono">
+                                                → {scoreAfter}
+                                            </span>
+
+                                            {/* Spacer */}
+                                            <span className="flex-1" />
+
+                                            {/* Time ago */}
+                                            <span className="text-slate-600 text-[10px]">
+                                                {typeof entry === 'object' ? formatTimeAgo(entry.timestamp) : '-'}
+                                            </span>
+
+                                            {/* Undo single entry */}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (confirm(`Annullare solo questa mossa (${entry.val > 0 ? '+' : ''}${entry.val})?`)) {
+                                                        onUndoSingle(originalIndex);
+                                                    }
+                                                }}
+                                                className="p-0.5 rounded hover:bg-orange-500/20 text-slate-600 hover:text-orange-400 transition-colors"
+                                                title="Annulla solo questa"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+
+                                            {/* Rollback from here */}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (confirm(`Annullare questa mossa e tutte le successive?`)) {
+                                                        onRollback(originalIndex);
+                                                    }
+                                                }}
+                                                className="p-0.5 rounded hover:bg-red-500/20 text-slate-600 hover:text-red-400 transition-colors"
+                                                title="Annulla da qui"
+                                            >
+                                                <Undo2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    );
+                                })
                             )}
                         </div>
                     </motion.div>
@@ -119,6 +168,7 @@ PlayerCard.propTypes = {
                 PropTypes.number,
                 PropTypes.shape({
                     val: PropTypes.number.isRequired,
+                    scoreAfter: PropTypes.number,
                     timestamp: PropTypes.number.isRequired
                 })
             ])
@@ -126,5 +176,7 @@ PlayerCard.propTypes = {
     }).isRequired,
     isWinner: PropTypes.bool.isRequired,
     isSelected: PropTypes.bool.isRequired,
-    onClick: PropTypes.func.isRequired
+    onClick: PropTypes.func.isRequired,
+    onRollback: PropTypes.func.isRequired,
+    onUndoSingle: PropTypes.func.isRequired
 };

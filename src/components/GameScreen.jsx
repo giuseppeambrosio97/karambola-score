@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, List, Check, Trophy } from 'lucide-react';
+import { ArrowLeft, Check, Trophy, BarChart3, RotateCcw } from 'lucide-react';
 import PlayerCard from './PlayerCard';
 import Leaderboard from './Leaderboard';
 import GameTimer from './GameTimer';
@@ -8,7 +8,7 @@ import logo from '../assets/logo.jpeg';
 import clsx from 'clsx';
 import pkg from '../../package.json';
 
-export default function GameScreen({ players, gameStartTime, onUpdateScore, onSetWinner, onResetGame, onRestartMatch }) {
+export default function GameScreen({ players, gameStartTime, onUpdateScore, onRollbackScore, onUndoSingleEntry, onSetWinner, onResetGame, onRestartMatch }) {
     const [showLeaderboard, setShowLeaderboard] = useState(false);
     const [selectedPlayerId, setSelectedPlayerId] = useState(null);
     const [customScore, setCustomScore] = useState('');
@@ -33,11 +33,24 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onSe
         }
     }, [selectedPlayerId]);
 
+    // Filter out players who are manually selected as winners
+    const visiblePlayers = players.filter(p => !p.manualWinner);
+
+    // Deselect player if they become a winner (hidden from grid)
+    useEffect(() => {
+        if (selectedPlayerId) {
+            const player = players.find(p => p.id === selectedPlayerId);
+            if (player && player.manualWinner) {
+                setSelectedPlayerId(null);
+            }
+        }
+    }, [players, selectedPlayerId]);
+
     const handleCustomScoreSubmit = (e) => {
         e.preventDefault();
         if (!selectedPlayerId) return;
 
-        const val = parseInt(customScore);
+        const val = parseFloat(customScore);
         if (!isNaN(val) && val !== 0) {
             onUpdateScore(selectedPlayerId, val);
             setCustomScore('');
@@ -49,9 +62,13 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onSe
             {/* Header - Fixed top */}
             <div className="flex-none p-4 bg-neutral-900/90 backdrop-blur-md z-10 border-b border-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10">
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="w-10 h-10 rounded-full overflow-hidden border border-white/10 hover:border-emerald-500/50 transition-colors active:scale-95 flex-shrink-0"
+                        title="Ricarica pagina"
+                    >
                         <img src={logo} alt="Logo" className="w-full h-full object-cover" />
-                    </div>
+                    </button>
                     <GameTimer startTime={gameStartTime} />
                 </div>
 
@@ -61,14 +78,14 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onSe
                         className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
                         title="Classifica"
                     >
-                        <List className="w-5 h-5 text-emerald-400" />
+                        <BarChart3 className="w-5 h-5 text-emerald-400" />
                     </button>
                     <button
                         onClick={onRestartMatch}
                         className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
                         title="Reset Punteggi"
                     >
-                        <div className="text-xs font-bold text-blue-400">0-0</div>
+                        <RotateCcw className="w-5 h-5 text-blue-400" />
                     </button>
                     <button
                         onClick={onResetGame}
@@ -83,13 +100,15 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onSe
             {/* Main Content - Scrollable Grid */}
             <div className="flex-1 overflow-y-auto p-4 pb-32">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {players.map((player) => (
+                    {visiblePlayers.map((player) => (
                         <PlayerCard
                             key={player.id}
                             player={player}
                             isWinner={isPlayerWinner(player)}
                             isSelected={selectedPlayerId === player.id}
                             onClick={() => setSelectedPlayerId(player.id === selectedPlayerId ? null : player.id)}
+                            onRollback={(historyIndex) => onRollbackScore(player.id, historyIndex)}
+                            onUndoSingle={(historyIndex) => onUndoSingleEntry(player.id, historyIndex)}
                         />
                     ))}
                 </div>
@@ -98,7 +117,7 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onSe
             {/* Sticky Footer - Controls */}
             <div className="flex-none bg-neutral-800 border-t border-white/5 shadow-[0_-4px_20px_rgba(0,0,0,0.3)]">
                 <div className="max-w-xl mx-auto p-4">
-                    {!selectedPlayer ? (
+                    {!selectedPlayer || selectedPlayer.manualWinner ? (
                         <div className="h-20 flex items-center justify-center text-white/30 text-sm font-medium animate-pulse">
                             Seleziona un giocatore per modificare il punteggio
                         </div>
@@ -106,7 +125,7 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onSe
                         <div className="space-y-4">
                             {/* Selected Player Indicator (Optional, confirms selection) */}
                             <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider mb-2">
-                                <span className="text-emerald-400">Modifica: {selectedPlayer.name}</span>
+                                <span className="text-emerald-400">Modifica: {selectedPlayer.name} ({Number(selectedPlayer.score.toFixed(2))})</span>
 
                                 <div className="flex gap-4">
                                     <button
@@ -126,14 +145,27 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onSe
                             {/* Quick Actions Grid */}
                             <div className="grid grid-cols-6 gap-2">
                                 {/* Negative */}
-                                <button onClick={() => onUpdateScore(selectedPlayer.id, -1)} className="col-span-2 h-12 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold text-xl flex items-center justify-center transition-colors border border-red-500/20 active:scale-95">-1</button>
-                                <button onClick={() => onUpdateScore(selectedPlayer.id, -11)} className="col-span-2 h-12 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold text-xl flex items-center justify-center transition-colors border border-red-500/20 active:scale-95">-11</button>
-                                <button onClick={() => onUpdateScore(selectedPlayer.id, -12)} className="col-span-2 h-12 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold text-xl flex items-center justify-center transition-colors border border-red-500/20 active:scale-95">-12</button>
-
-                                {/* Positive */}
-                                <button onClick={() => onUpdateScore(selectedPlayer.id, 1)} className="col-span-2 h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 font-bold text-xl flex items-center justify-center transition-colors border border-emerald-500/20 active:scale-95">+1</button>
-                                <button onClick={() => onUpdateScore(selectedPlayer.id, 11)} className="col-span-2 h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 font-bold text-xl flex items-center justify-center transition-colors border border-emerald-500/20 active:scale-95">+11</button>
-                                <button onClick={() => onUpdateScore(selectedPlayer.id, 12)} className="col-span-2 h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 font-bold text-xl flex items-center justify-center transition-colors border border-emerald-500/20 active:scale-95">+12</button>
+                                <button
+                                    disabled={selectedPlayer.manualWinner}
+                                    onClick={() => onUpdateScore(selectedPlayer.id, -1)}
+                                    className="col-span-2 h-12 rounded-xl bg-red-500/10 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-red-500 font-bold text-xl flex items-center justify-center transition-colors border border-red-500/20 active:scale-95"
+                                >
+                                    -1
+                                </button>
+                                <button
+                                    disabled={selectedPlayer.manualWinner}
+                                    onClick={() => onUpdateScore(selectedPlayer.id, -11)}
+                                    className="col-span-2 h-12 rounded-xl bg-red-500/10 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-red-500 font-bold text-xl flex items-center justify-center transition-colors border border-red-500/20 active:scale-95"
+                                >
+                                    -11
+                                </button>
+                                <button
+                                    disabled={selectedPlayer.manualWinner}
+                                    onClick={() => onUpdateScore(selectedPlayer.id, -12)}
+                                    className="col-span-2 h-12 rounded-xl bg-red-500/10 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-red-500 font-bold text-xl flex items-center justify-center transition-colors border border-red-500/20 active:scale-95"
+                                >
+                                    -12
+                                </button>
                             </div>
 
                             {/* Custom Input */}
@@ -141,14 +173,16 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onSe
                                 <input
                                     ref={customInputRef}
                                     type="number"
+                                    step="any"
+                                    disabled={selectedPlayer.manualWinner}
                                     value={customScore}
                                     onChange={(e) => setCustomScore(e.target.value)}
-                                    placeholder="Altro..."
-                                    className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 text-center font-medium focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-white/20 h-10"
+                                    placeholder={selectedPlayer.manualWinner ? "Punteggio bloccato" : "Altro..."}
+                                    className="flex-1 bg-black/20 border border-white/10 rounded-xl px-4 text-center font-medium focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-white/20 h-10 disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                                 <button
                                     type="submit"
-                                    disabled={!customScore}
+                                    disabled={!customScore || selectedPlayer.manualWinner}
                                     className="w-12 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-green-400"
                                 >
                                     <Check className="w-5 h-5" />
@@ -164,6 +198,7 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onSe
                 players={players}
                 isOpen={showLeaderboard}
                 onClose={() => setShowLeaderboard(false)}
+                onToggleWinner={onSetWinner}
             />
             {/* Version Footer */}
             <div className="absolute bottom-1 right-1 text-white/10 text-[10px] font-mono select-none z-50 pointer-events-none">
@@ -177,6 +212,8 @@ GameScreen.propTypes = {
     players: PropTypes.array.isRequired,
     gameStartTime: PropTypes.number,
     onUpdateScore: PropTypes.func.isRequired,
+    onRollbackScore: PropTypes.func.isRequired,
+    onUndoSingleEntry: PropTypes.func.isRequired,
     onSetWinner: PropTypes.func.isRequired,
     onResetGame: PropTypes.func.isRequired,
     onRestartMatch: PropTypes.func.isRequired

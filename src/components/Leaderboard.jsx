@@ -8,7 +8,7 @@ function cn(...inputs) {
     return twMerge(clsx(inputs));
 }
 
-export default function Leaderboard({ players, isOpen, onClose }) {
+export default function Leaderboard({ players, isOpen, onClose, onToggleWinner }) {
     const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
 
     return (
@@ -58,28 +58,31 @@ export default function Leaderboard({ players, isOpen, onClose }) {
                                         transition={{ type: "spring", damping: 25, stiffness: 200 }}
                                         className={cn(
                                             "flex items-center gap-3 p-3 rounded-xl border transition-colors",
-                                            index === 0 ? "bg-yellow-500/10 border-yellow-500/50" :
-                                                index === 1 ? "bg-slate-300/10 border-slate-300/50" :
-                                                    index === 2 ? "bg-amber-700/10 border-amber-700/50" :
-                                                        "bg-white/5 border-white/10"
+                                            player.manualWinner ? "bg-yellow-500/15 border-yellow-500/60 ring-1 ring-yellow-500/30" :
+                                                index === 0 ? "bg-yellow-500/10 border-yellow-500/50" :
+                                                    index === 1 ? "bg-slate-300/10 border-slate-300/50" :
+                                                        index === 2 ? "bg-amber-700/10 border-amber-700/50" :
+                                                            "bg-white/5 border-white/10"
                                         )}
                                     >
                                         {/* Rank */}
                                         <div className={cn(
                                             "w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm",
-                                            index === 0 ? "bg-yellow-500 text-yellow-950" :
-                                                index === 1 ? "bg-slate-300 text-slate-900" :
-                                                    index === 2 ? "bg-amber-700 text-amber-100" :
-                                                        "bg-slate-700 text-slate-300"
+                                            player.manualWinner ? "bg-yellow-500 text-yellow-950" :
+                                                index === 0 ? "bg-yellow-500 text-yellow-950" :
+                                                    index === 1 ? "bg-slate-300 text-slate-900" :
+                                                        index === 2 ? "bg-amber-700 text-amber-100" :
+                                                            "bg-slate-700 text-slate-300"
                                         )}>
-                                            {index + 1}
+                                            {player.manualWinner ? <Trophy className="w-4 h-4" /> : index + 1}
                                         </div>
 
                                         {/* Name */}
                                         <div className="flex-1 font-medium text-white truncate flex items-center gap-2">
                                             {player.name}
-                                            {index === 0 && <span className="text-xs text-yellow-500 font-bold uppercase tracking-wider">TI ROMPO</span>}
-                                            {index === sortedPlayers.length - 1 && sortedPlayers.length > 1 && <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1">CASSA 💸</span>}
+                                            {player.manualWinner && <span className="text-xs text-yellow-400 font-bold uppercase tracking-wider">🏆 Vincitore</span>}
+                                            {!player.manualWinner && index === 0 && <span className="text-xs text-yellow-500 font-bold uppercase tracking-wider">TI ROMPO</span>}
+                                            {!player.manualWinner && index === sortedPlayers.length - 1 && sortedPlayers.length > 1 && <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1">CASSA 💸</span>}
                                         </div>
 
                                         {/* Score */}
@@ -89,8 +92,24 @@ export default function Leaderboard({ players, isOpen, onClose }) {
                                             animate={{ scale: 1, color: '#fff' }}
                                             className="text-xl font-black font-mono"
                                         >
-                                            {player.score}
+                                            {Number(player.score.toFixed(2))}
                                         </motion.div>
+
+                                        {/* Winner Toggle Button */}
+                                        {onToggleWinner && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onToggleWinner(player.id); }}
+                                                className={cn(
+                                                    "p-1.5 rounded-lg transition-all",
+                                                    player.manualWinner
+                                                        ? "bg-yellow-500/20 text-yellow-400 hover:bg-red-500/20 hover:text-red-400"
+                                                        : "bg-white/5 text-slate-500 hover:bg-yellow-500/20 hover:text-yellow-400"
+                                                )}
+                                                title={player.manualWinner ? "Rimuovi vittoria" : "Assegna vittoria"}
+                                            >
+                                                <Trophy className="w-4 h-4" />
+                                            </button>
+                                        )}
                                     </motion.div>
                                 ))}
                             </AnimatePresence>
@@ -106,8 +125,10 @@ Leaderboard.propTypes = {
     players: PropTypes.arrayOf(PropTypes.shape({
         id: PropTypes.number.isRequired,
         name: PropTypes.string.isRequired,
-        score: PropTypes.number.isRequired
+        score: PropTypes.number.isRequired,
+        manualWinner: PropTypes.bool
     })).isRequired,
     isOpen: PropTypes.bool.isRequired,
-    onClose: PropTypes.func.isRequired
+    onClose: PropTypes.func.isRequired,
+    onToggleWinner: PropTypes.func
 };
