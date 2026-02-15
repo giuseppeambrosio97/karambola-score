@@ -18,6 +18,28 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  // Import state from URL on first load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const stateParam = params.get('state');
+    if (stateParam) {
+      try {
+        const decoded = JSON.parse(atob(stateParam));
+        if (decoded.players && Array.isArray(decoded.players)) {
+          setPlayers(decoded.players);
+          setIsPlaying(decoded.isPlaying ?? true);
+          setGameStartTime(decoded.gameStartTime ?? Date.now());
+        }
+      } catch (e) {
+        console.error('Failed to import state from URL:', e);
+      }
+      // Clean up URL
+      const url = new URL(window.location);
+      url.searchParams.delete('state');
+      window.history.replaceState({}, '', url.pathname);
+    }
+  }, []);
+
   // Persistence Effect
   useEffect(() => {
     localStorage.setItem('karambola_isPlaying', JSON.stringify(isPlaying));
@@ -30,6 +52,20 @@ export default function App() {
     setPlayers(initialPlayers);
     setIsPlaying(true);
     setGameStartTime(Date.now());
+  };
+
+  // Add Player During Match
+  const handleAddPlayer = (name) => {
+    setPlayers(prev => {
+      const maxId = prev.reduce((max, p) => Math.max(max, p.id), 0);
+      return [...prev, {
+        id: maxId + 1,
+        name: name.trim() || `Giocatore ${maxId + 1}`,
+        score: 0,
+        history: [],
+        manualWinner: false
+      }];
+    });
   };
 
   // Game Logic Handlers
@@ -122,6 +158,7 @@ export default function App() {
           onSetWinner={handleSetManualWinner}
           onResetGame={handleResetGame}
           onRestartMatch={handleResetScores}
+          onAddPlayer={handleAddPlayer}
         />
       ) : (
         <SetupScreen onStartGame={handleStartGame} />

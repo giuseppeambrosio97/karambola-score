@@ -1,20 +1,26 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Check, Trophy, BarChart3, RotateCcw, Share2 } from 'lucide-react';
+import { ArrowLeft, Check, Trophy, BarChart3, RotateCcw, Share2, UserPlus } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import PlayerCard from './PlayerCard';
 import Leaderboard from './Leaderboard';
 import QRCodeModal from './QRCodeModal';
+import HistoryModal from './HistoryModal';
 import GameTimer from './GameTimer';
 import PropTypes from 'prop-types';
 import logo from '../assets/logo.jpeg';
 import clsx from 'clsx';
 import pkg from '../../package.json';
 
-export default function GameScreen({ players, gameStartTime, onUpdateScore, onRollbackScore, onUndoSingleEntry, onSetWinner, onResetGame, onRestartMatch }) {
+export default function GameScreen({ players, gameStartTime, onUpdateScore, onRollbackScore, onUndoSingleEntry, onSetWinner, onResetGame, onRestartMatch, onAddPlayer }) {
     const [showLeaderboard, setShowLeaderboard] = useState(false);
     const [showQR, setShowQR] = useState(false);
     const [selectedPlayerId, setSelectedPlayerId] = useState(null);
     const [customScore, setCustomScore] = useState('');
+    const [historyPlayerId, setHistoryPlayerId] = useState(null);
+    const [showAddPlayer, setShowAddPlayer] = useState(false);
+    const [newPlayerName, setNewPlayerName] = useState('');
     const customInputRef = useRef(null);
+    const newPlayerInputRef = useRef(null);
 
     const manualWinnerExists = players.some(p => p.manualWinner);
     const maxScore = Math.max(...players.map(p => p.score), 0);
@@ -26,6 +32,7 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onRo
     };
 
     const selectedPlayer = players.find(p => p.id === selectedPlayerId);
+    const historyPlayer = players.find(p => p.id === historyPlayerId);
 
     // Auto-focus input when player selected
     useEffect(() => {
@@ -34,6 +41,13 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onRo
             setTimeout(() => customInputRef.current?.focus(), 50);
         }
     }, [selectedPlayerId]);
+
+    // Auto-focus new player input
+    useEffect(() => {
+        if (showAddPlayer && newPlayerInputRef.current) {
+            setTimeout(() => newPlayerInputRef.current?.focus(), 50);
+        }
+    }, [showAddPlayer]);
 
     // Filter out players who are manually selected as winners
     const visiblePlayers = players.filter(p => !p.manualWinner);
@@ -57,6 +71,13 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onRo
             onUpdateScore(selectedPlayerId, val);
             setCustomScore('');
         }
+    };
+
+    const handleAddPlayerSubmit = (e) => {
+        e.preventDefault();
+        onAddPlayer(newPlayerName);
+        setNewPlayerName('');
+        setShowAddPlayer(false);
     };
 
     return (
@@ -116,10 +137,67 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onRo
                             isWinner={isPlayerWinner(player)}
                             isSelected={selectedPlayerId === player.id}
                             onClick={() => setSelectedPlayerId(player.id === selectedPlayerId ? null : player.id)}
-                            onRollback={(historyIndex) => onRollbackScore(player.id, historyIndex)}
-                            onUndoSingle={(historyIndex) => onUndoSingleEntry(player.id, historyIndex)}
+                            onOpenHistory={() => setHistoryPlayerId(player.id)}
                         />
                     ))}
+
+                    {/* Add Player Card - Always Last */}
+                    <motion.div
+                        layout
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="relative flex flex-col items-center justify-center bg-slate-800/40 rounded-2xl border-2 border-dashed border-slate-600 hover:border-emerald-500/50 hover:bg-slate-800/60 transition-all cursor-pointer min-h-[120px] overflow-hidden"
+                        onClick={() => !showAddPlayer && setShowAddPlayer(true)}
+                    >
+                        <AnimatePresence mode="wait">
+                            {showAddPlayer ? (
+                                <motion.form
+                                    key="form"
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    onSubmit={handleAddPlayerSubmit}
+                                    className="p-3 w-full space-y-2"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <input
+                                        ref={newPlayerInputRef}
+                                        type="text"
+                                        placeholder="Nome giocatore..."
+                                        value={newPlayerName}
+                                        onChange={(e) => setNewPlayerName(e.target.value)}
+                                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-600"
+                                    />
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="submit"
+                                            className="flex-1 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-xs font-bold transition-colors"
+                                        >
+                                            Aggiungi
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setShowAddPlayer(false); setNewPlayerName(''); }}
+                                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-400 rounded-lg text-xs transition-colors"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                </motion.form>
+                            ) : (
+                                <motion.div
+                                    key="icon"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="flex flex-col items-center gap-2 p-4"
+                                >
+                                    <UserPlus className="w-8 h-8 text-slate-500" />
+                                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Aggiungi</span>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </motion.div>
                 </div>
             </div>
 
@@ -209,7 +287,19 @@ export default function GameScreen({ players, gameStartTime, onUpdateScore, onRo
                 onClose={() => setShowLeaderboard(false)}
                 onToggleWinner={onSetWinner}
             />
-            <QRCodeModal isOpen={showQR} onClose={() => setShowQR(false)} />
+            <QRCodeModal
+                isOpen={showQR}
+                onClose={() => setShowQR(false)}
+                players={players}
+                gameStartTime={gameStartTime}
+            />
+            <HistoryModal
+                player={historyPlayer}
+                isOpen={!!historyPlayerId}
+                onClose={() => setHistoryPlayerId(null)}
+                onRollback={(historyIndex) => onRollbackScore(historyPlayerId, historyIndex)}
+                onUndoSingle={(historyIndex) => onUndoSingleEntry(historyPlayerId, historyIndex)}
+            />
             {/* Version Footer */}
             <div className="absolute bottom-1 right-1 text-white/10 text-[10px] font-mono select-none z-50 pointer-events-none">
                 v{pkg.version}
@@ -226,5 +316,7 @@ GameScreen.propTypes = {
     onUndoSingleEntry: PropTypes.func.isRequired,
     onSetWinner: PropTypes.func.isRequired,
     onResetGame: PropTypes.func.isRequired,
-    onRestartMatch: PropTypes.func.isRequired
+    onRestartMatch: PropTypes.func.isRequired,
+    onAddPlayer: PropTypes.func.isRequired
 };
+
